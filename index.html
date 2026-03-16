@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAF Regex Builder</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, -apple-system, sans-serif; background: #161618; color: #d4d4d4; padding: 1.5rem; max-width: 750px; margin: 0 auto; }
+  h1 { color: #a78bda; font-size: 1.3rem; margin-bottom: 0.3rem; }
+  .subtitle { color: #646464; font-size: 0.78rem; margin-bottom: 1.2rem; }
+  h2 { font-size: 0.95rem; color: #a78bda; margin-bottom: 0.6rem; }
+  .field { margin-bottom: 1.2rem; }
+  label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 0.3rem; font-weight: 600; }
+  input[type="text"] { width: 100%; padding: 0.55rem 0.7rem; background: #1e1e20; border: 1px solid #393639; border-radius: 6px; color: #d4d4d4; font-size: 0.9rem; font-family: inherit; }
+  input:focus { outline: none; border-color: #a78bda; }
+
+  /* Toggle button groups */
+  .toggle-group { margin-bottom: 1rem; }
+  .toggle-label { font-size: 0.72rem; color: #646464; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; font-weight: 600; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .toggle-btn { padding: 0.35rem 0.75rem; background: #1e1e20; border: 1px solid #393639; border-radius: 6px; color: #888; font-size: 0.8rem; font-family: inherit; cursor: pointer; transition: all 0.15s; user-select: none; }
+  .toggle-btn:hover { border-color: #646464; color: #d4d4d4; }
+  .toggle-btn.active { background: #a78bda; border-color: #a78bda; color: #161618; font-weight: 600; }
+  .toggle-btn.active-green { background: #8CF594; border-color: #8CF594; color: #161618; font-weight: 600; }
+  .toggle-btn.active-orange { background: #F26822; border-color: #F26822; color: #fff; font-weight: 600; }
+
+  /* Output */
+  .output-box { background: #1e1e20; border: 1px solid #393639; border-radius: 6px; padding: 0.65rem 0.7rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #8CF594; min-height: 2.5rem; word-break: break-all; cursor: pointer; position: relative; transition: all 0.2s; }
+  .output-box:hover { border-color: #a78bda; }
+  .output-box .hint { color: #646464; font-family: Inter, sans-serif; font-size: 0.82rem; }
+  .output-box.copied { border-color: #8CF594; }
+
+  /* Suggestions */
+  .suggestions { margin-top: 1.2rem; }
+  .suggestion { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.7rem; background: #1e1e20; border: 1px solid #393639; border-radius: 6px; margin-bottom: 0.4rem; cursor: pointer; transition: border-color 0.15s; }
+  .suggestion:hover { border-color: #a78bda; }
+  .suggestion .label { font-size: 0.75rem; color: #888; min-width: 170px; flex-shrink: 0; }
+  .suggestion .regex { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: #8CF594; flex: 1; word-break: break-all; overflow: hidden; }
+  .suggestion .badge { font-size: 0.6rem; padding: 0.12rem 0.35rem; border-radius: 3px; font-weight: 600; text-transform: uppercase; flex-shrink: 0; }
+  .b-ip { background: rgba(167,139,218,0.2); color: #a78bda; }
+  .b-range { background: rgba(140,245,148,0.2); color: #8CF594; }
+  .b-path { background: rgba(242,104,34,0.2); color: #F26822; }
+  .b-ua { background: rgba(100,100,100,0.2); color: #999; }
+  .b-enc { background: rgba(59,130,246,0.2); color: #3B82F6; }
+  .b-neg { background: rgba(239,68,68,0.2); color: #EF4444; }
+
+  .copy-toast { position: fixed; bottom: 1rem; right: 1rem; background: #a78bda; color: #161618; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+  .copy-toast.show { opacity: 1; }
+  hr { border: none; border-top: 1px solid #2a2a2c; margin: 1.2rem 0; }
+  .info { font-size: 0.72rem; color: #555; line-height: 1.6; margin-top: 1rem; }
+  .info strong { color: #888; }
+  /* Reference section */
+  .ref-section { margin-top: 1.5rem; }
+  .ref-section > h2 { margin-bottom: 1rem; }
+  .ref-card { background: #1e1e20; border: 1px solid #2a2a2c; border-radius: 8px; padding: 1rem; margin-bottom: 0.8rem; }
+  .ref-card h3 { color: #a78bda; font-size: 0.9rem; margin-bottom: 0.6rem; }
+  .ref-card p { font-size: 0.78rem; color: #999; line-height: 1.6; margin-bottom: 0.5rem; }
+  .ref-option { margin-bottom: 0.7rem; padding-left: 0.5rem; border-left: 2px solid #393639; }
+  .ref-option strong { color: #d4d4d4; font-size: 0.82rem; }
+  .ref-option br + .ex { display: block; margin-top: 0.25rem; }
+  .ex { font-size: 0.73rem; color: #646464; line-height: 1.5; }
+  .ex code { background: #252528; padding: 0.1rem 0.3rem; border-radius: 3px; color: #8CF594; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
+  .ref-card ul { font-size: 0.78rem; color: #999; line-height: 1.7; padding-left: 1.2rem; }
+  .ref-card ul li { margin-bottom: 0.3rem; }
+  .ref-card ul strong { color: #d4d4d4; }
+
+  @media (max-width: 600px) {
+    .suggestion .label { min-width: 120px; font-size: 0.7rem; }
+    .toggles { gap: 0.3rem; }
+    .toggle-btn { padding: 0.3rem 0.55rem; font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+<h1>WAF Regex Builder</h1>
+<p class="subtitle">Build blocking patterns from log values. Click any output to copy.</p>
+
+<div class="field">
+  <label>Value (paste IP, path, user-agent, query, or payload)</label>
+  <input type="text" id="inputValue" placeholder="e.g. 34.90.198.146 or /wp-admin/ or curl/7.68" autofocus>
+</div>
+
+<!-- Match Type -->
+<div class="toggle-group">
+  <div class="toggle-label">Match Type</div>
+  <div class="toggles" id="matchToggles">
+    <button class="toggle-btn active" data-val="contains">Contains</button>
+    <button class="toggle-btn" data-val="exact">Exact Match</button>
+    <button class="toggle-btn" data-val="begins">Starts With</button>
+    <button class="toggle-btn" data-val="ends">Ends With</button>
+  </div>
+</div>
+
+<!-- Case Sensitivity -->
+<div class="toggle-group">
+  <div class="toggle-label">Case Sensitivity</div>
+  <div class="toggles" id="caseToggles">
+    <button class="toggle-btn active" data-val="insensitive">Case Insensitive</button>
+    <button class="toggle-btn" data-val="sensitive">Case Sensitive</button>
+  </div>
+</div>
+
+<!-- Encoding Detection (optional, multi-select) -->
+<div class="toggle-group">
+  <div class="toggle-label">Encoding Detection (optional — select any combination)</div>
+  <div class="toggles" id="encodingToggles">
+    <button class="toggle-btn" data-val="url_single">URL Encoded (%XX)</button>
+    <button class="toggle-btn" data-val="url_nested">Nested/Double Encoded (%25XX)</button>
+  </div>
+</div>
+
+<!-- Extras (optional, multi-select) -->
+<div class="toggle-group">
+  <div class="toggle-label">Additional Options (optional)</div>
+  <div class="toggles" id="extraToggles">
+    <button class="toggle-btn" data-val="negate">Negate (match everything EXCEPT this)</button>
+    <button class="toggle-btn" data-val="wildcard">Wildcard Segments (/ → /.*?/)</button>
+    <button class="toggle-btn" data-val="word_boundary">Word Boundaries (\b...\b)</button>
+    <button class="toggle-btn" data-val="ip_mode">IP Address Mode (auto-escape dots)</button>
+  </div>
+</div>
+
+<div class="field" style="margin-top:1rem">
+  <label>Generated Regex (click to copy)</label>
+  <div class="output-box" id="output" onclick="copyOutput()">
+    <span class="hint">Type a value above</span>
+  </div>
+</div>
+
+<hr>
+
+<div class="suggestions" id="suggestions" style="display:none">
+  <h2>Smart Suggestions</h2>
+  <div id="suggestionList"></div>
+</div>
+
+<div class="ref-section">
+  <h2>Reference Guide</h2>
+
+  <div class="ref-card">
+    <h3>Workflow</h3>
+    <p>Paste a value from your WAF logs → select match options → click the output or any suggestion to copy the regex to your clipboard → paste into the <strong>Block Pattern → Regex</strong> field on the Grafana security dashboard → apply the block.</p>
+    <p>For IP-based blocks, use the <strong>Block IP / CIDR / ASN</strong> form directly — it's faster and doesn't require regex.</p>
+  </div>
+
+  <div class="ref-card">
+    <h3>Match Type</h3>
+    <div class="ref-option">
+      <strong>Contains</strong> — Matches if the value appears <em>anywhere</em> in the target string.<br>
+      <span class="ex">Value: <code>wp-admin</code> → Matches: <code>/wp-admin/setup.php</code>, <code>/blog/wp-admin/</code>, <code>/old-wp-admin-backup</code></span>
+    </div>
+    <div class="ref-option">
+      <strong>Exact Match</strong> — Matches <em>only</em> if the entire target string equals the value. Nothing before, nothing after.<br>
+      <span class="ex">Value: <code>/wp-admin/</code> → Matches: <code>/wp-admin/</code> only. Does NOT match: <code>/wp-admin/setup.php</code></span>
+    </div>
+    <div class="ref-option">
+      <strong>Starts With</strong> — Matches if the target string <em>begins</em> with the value.<br>
+      <span class="ex">Value: <code>/wp-</code> → Matches: <code>/wp-admin/</code>, <code>/wp-content/</code>, <code>/wp-includes/</code>. Does NOT match: <code>/blog/wp-admin</code></span>
+    </div>
+    <div class="ref-option">
+      <strong>Ends With</strong> — Matches if the target string <em>ends</em> with the value.<br>
+      <span class="ex">Value: <code>.php</code> → Matches: <code>/setup.php</code>, <code>/xmlrpc.php</code>. Does NOT match: <code>/setup.php?id=1</code></span>
+    </div>
+  </div>
+
+  <div class="ref-card">
+    <h3>Case Sensitivity</h3>
+    <div class="ref-option">
+      <strong>Case Insensitive</strong> (default) — Matches regardless of upper/lower case. Recommended for most blocking rules since attackers often randomize case to evade detection.<br>
+      <span class="ex">Value: <code>admin</code> → Matches: <code>admin</code>, <code>Admin</code>, <code>ADMIN</code>, <code>aDmIn</code></span>
+    </div>
+    <div class="ref-option">
+      <strong>Case Sensitive</strong> — Only matches the exact casing provided. Use when you need precision and the value is always a specific case (like a file extension or protocol header).<br>
+      <span class="ex">Value: <code>POST</code> → Matches: <code>POST</code> only. Does NOT match: <code>post</code>, <code>Post</code></span>
+    </div>
+  </div>
+
+  <div class="ref-card">
+    <h3>Encoding Detection</h3>
+    <p>Attackers frequently URL-encode characters to bypass WAF rules that only match literal strings. These options generate regex that catches both the literal value and its encoded forms.</p>
+    <div class="ref-option">
+      <strong>URL Encoded (%XX)</strong> — Matches the literal value AND its standard URL-encoded form. Each character is matched as either itself or its <code>%HexCode</code> equivalent.<br>
+      <span class="ex">Value: <code>../</code> → Also matches: <code>%2e%2e%2f</code>, <code>%2E%2E/</code>, <code>.%2e/</code> (any mix of encoded and literal characters)</span><br>
+      <span class="ex">Value: <code>/etc/passwd</code> → Also matches: <code>%2fetc%2fpasswd</code></span>
+    </div>
+    <div class="ref-option">
+      <strong>Nested/Double Encoded (%25XX)</strong> — Catches double-encoding evasion, where the <code>%</code> character itself is encoded as <code>%25</code>. Some WAFs decode URL encoding once — attackers double-encode to survive that first decode pass.<br>
+      <span class="ex">Value: <code>../</code> → Also matches: <code>%252e%252e%252f</code> (double-encoded), <code>%2e%2e/</code> (single-encoded), <code>../</code> (literal)</span><br>
+      <span class="ex">This is the most thorough option — it covers literal, single-encoded, AND double-encoded forms simultaneously.</span>
+    </div>
+  </div>
+
+  <div class="ref-card">
+    <h3>Additional Options</h3>
+    <div class="ref-option">
+      <strong>Negate (match everything EXCEPT this)</strong> — Creates a negative lookahead that matches any request that does NOT contain the value. Useful for positive security: "block everything except this known-good pattern."<br>
+      <span class="ex">Value: <code>/philosophy/</code> with Negate → Blocks any request whose path does NOT contain <code>/philosophy/</code></span><br>
+      <span class="ex">Value: <code>Mozilla</code> with Negate → Blocks any request whose User-Agent does NOT contain <code>Mozilla</code> (catches non-browser bots)</span>
+    </div>
+    <div class="ref-option">
+      <strong>Wildcard Segments</strong> — Replaces path separators with flexible wildcards (<code>/.*?/</code>), allowing any content between path segments. Useful for blocking a pattern that appears in different directory depths.<br>
+      <span class="ex">Value: <code>/wp/admin/setup.php</code> → Regex: <code>/wp/.*?/admin/.*?/setup\.php</code></span><br>
+      <span class="ex">This matches: <code>/wp/admin/setup.php</code>, <code>/wp/v2/admin/panel/setup.php</code>, <code>/wp/anything/admin/here/setup.php</code></span>
+    </div>
+    <div class="ref-option">
+      <strong>Word Boundaries</strong> — Wraps the value in <code>\b</code> boundary markers so it only matches as a complete word, not as part of a longer string. Prevents over-blocking.<br>
+      <span class="ex">Value: <code>admin</code> → Matches: <code>admin</code>, <code>/admin/</code>, <code>admin panel</code>. Does NOT match: <code>administrator</code>, <code>sysadmin</code>, <code>admintools</code></span><br>
+      <span class="ex">Value: <code>test</code> → Matches: <code>test</code>, <code>test-page</code>. Does NOT match: <code>testing</code>, <code>latest</code>, <code>contest</code></span>
+    </div>
+    <div class="ref-option">
+      <strong>IP Address Mode</strong> — Automatically escapes dots (<code>.</code> → <code>\.</code>) which is required for IP addresses in regex. Without this, <code>1.2.3.4</code> would match <code>102030400</code> because <code>.</code> means "any character" in regex.<br>
+      <span class="ex">Value: <code>192.168.1.100</code> → Regex: <code>192\.168\.1\.100</code></span><br>
+      <span class="ex">Note: For simple IP blocks, the <strong>Block IP</strong> form on the dashboard is faster — it doesn't require regex at all. Use this option when you need to match IPs within a larger pattern.</span>
+    </div>
+  </div>
+
+  <div class="ref-card">
+    <h3>Tips</h3>
+    <ul>
+      <li>Options <strong>combine</strong> — you can select "Starts With" + "Case Insensitive" + "URL Encoded" simultaneously.</li>
+      <li><strong>Green toggles</strong> = encoding options active. <strong>Orange toggles</strong> = additional options active.</li>
+      <li>Smart Suggestions below the output are <strong>independent</strong> of your toggle selections — they always show common useful patterns for the value you entered.</li>
+      <li>Click any <strong>green output text</strong> (main output or suggestions) to copy to clipboard instantly.</li>
+      <li>When blocking paths, prefer <strong>Starts With</strong> over Contains to avoid accidentally blocking legitimate paths that share substrings.</li>
+      <li>When blocking user-agents, prefer <strong>Contains + Case Insensitive</strong> since UA strings vary wildly in casing and format.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="copy-toast" id="toast">Copied to clipboard!</div>
+
+<script>
+const input = document.getElementById('inputValue');
+const output = document.getElementById('output');
+const suggestionsDiv = document.getElementById('suggestions');
+const suggestionList = document.getElementById('suggestionList');
+
+// State
+let matchType = 'contains';
+let caseSensitivity = 'insensitive';
+let encodingOptions = new Set();
+let extraOptions = new Set();
+
+// Toggle logic — single-select groups
+function initSingleSelect(containerId, callback) {
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      callback(btn.dataset.val);
+      generate();
+    });
+  });
+}
+
+// Toggle logic — multi-select groups
+function initMultiSelect(containerId, stateSet, activeClass) {
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.val;
+      if (stateSet.has(val)) {
+        stateSet.delete(val);
+        btn.classList.remove(activeClass || 'active-green');
+      } else {
+        stateSet.add(val);
+        btn.classList.add(activeClass || 'active-green');
+      }
+      generate();
+    });
+  });
+}
+
+initSingleSelect('matchToggles', v => matchType = v);
+initSingleSelect('caseToggles', v => caseSensitivity = v);
+initMultiSelect('encodingToggles', encodingOptions, 'active-green');
+initMultiSelect('extraToggles', extraOptions, 'active-orange');
+
+function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function urlEncodeRegex(s) {
+  let r = '';
+  for (const c of s) {
+    const h = c.charCodeAt(0).toString(16).toUpperCase();
+    const hl = h.toLowerCase();
+    const e = esc(c);
+    r += `(?:${e}|%${h}|%${hl})`;
+  }
+  return r;
+}
+
+function nestedEncodeRegex(s) {
+  let r = '';
+  for (const c of s) {
+    const h = c.charCodeAt(0).toString(16).toUpperCase();
+    const hl = h.toLowerCase();
+    const e = esc(c);
+    r += `(?:${e}|%${h}|%${hl}|%25${h}|%25${hl})`;
+  }
+  return r;
+}
+
+function buildRegex(val) {
+  if (!val) return '';
+
+  let core;
+
+  // Encoding transforms
+  if (encodingOptions.has('url_nested')) {
+    core = nestedEncodeRegex(val);
+  } else if (encodingOptions.has('url_single')) {
+    core = urlEncodeRegex(val);
+  } else if (extraOptions.has('ip_mode')) {
+    core = val.replace(/\./g, '\\.');
+  } else if (extraOptions.has('wildcard')) {
+    core = val.split('/').filter(Boolean).map(s => esc(s)).join('/.*?/');
+    if (val.startsWith('/')) core = '/' + core;
+  } else {
+    core = esc(val);
+  }
+
+  // Word boundaries
+  if (extraOptions.has('word_boundary') && !encodingOptions.size) {
+    core = '\\b' + core + '\\b';
+  }
+
+  // Match type wrapping
+  switch (matchType) {
+    case 'exact': core = '^' + core + '$'; break;
+    case 'begins': core = '^' + core; break;
+    case 'ends': core = core + '$'; break;
+  }
+
+  // Negation
+  if (extraOptions.has('negate')) {
+    core = '^(?!.*' + core + ')';
+  }
+
+  // Case sensitivity
+  if (caseSensitivity === 'insensitive') {
+    core = '(?i)' + core;
+  }
+
+  return core;
+}
+
+function generate() {
+  const val = input.value.trim();
+  if (!val) {
+    output.innerHTML = '<span class="hint">Type a value above</span>';
+    suggestionsDiv.style.display = 'none';
+    return;
+  }
+
+  const regex = buildRegex(val);
+  output.textContent = regex;
+  output.classList.remove('copied');
+
+  // Smart suggestions
+  const escaped = esc(val);
+  const isIP = /^[\d.:a-f]+$/i.test(val);
+  const isPath = val.startsWith('/');
+  const suggestions = [];
+
+  suggestions.push({l: 'Contains (case-insensitive)', r: '(?i)' + escaped, t: isPath ? 'path' : 'ua'});
+  suggestions.push({l: 'Exact match', r: '(?i)^' + escaped + '$', t: isPath ? 'path' : 'ua'});
+  suggestions.push({l: 'Starts with', r: '(?i)^' + escaped, t: isPath ? 'path' : 'ua'});
+
+  if (!isIP) {
+    suggestions.push({l: 'URL encoded (single)', r: urlEncodeRegex(val), t: 'enc'});
+    suggestions.push({l: 'URL encoded (nested)', r: nestedEncodeRegex(val), t: 'enc'});
+  }
+
+  if (isIP) {
+    suggestions.push({l: 'Block this IP', r: val, t: 'ip'});
+    const parts = val.split('.');
+    if (parts.length === 4) {
+      suggestions.push({l: 'Block /24 range', r: parts.slice(0,3).join('.') + '.0/24', t: 'range'});
+      suggestions.push({l: 'Block /16 range', r: parts.slice(0,2).join('.') + '.0.0/16', t: 'range'});
+    }
+  }
+
+  if (isPath) {
+    const segs = val.split('/').filter(Boolean);
+    if (segs.length >= 1) {
+      suggestions.push({l: 'Block directory /' + segs[0] + '/', r: '(?i)^/' + esc(segs[0]) + '/', t: 'path'});
+    }
+    suggestions.push({l: 'Negate (allow only this path)', r: '^(?!.*(?i)' + escaped + ')', t: 'neg'});
+  }
+
+  if (!isIP && !isPath) {
+    suggestions.push({l: 'Word boundary match', r: '(?i)\\b' + escaped + '\\b', t: 'ua'});
+  }
+
+  const badgeClass = {ip: 'b-ip', range: 'b-range', path: 'b-path', ua: 'b-ua', enc: 'b-enc', neg: 'b-neg'};
+
+  suggestionList.innerHTML = suggestions.map(s => {
+    const safe = s.r.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="suggestion" onclick="copySuggestion(this)" data-regex="${s.r.replace(/"/g,'&quot;')}">
+      <span class="label">${s.l}</span>
+      <span class="regex">${safe}</span>
+      <span class="badge ${badgeClass[s.t] || 'b-ua'}">${s.t}</span>
+    </div>`;
+  }).join('');
+  suggestionsDiv.style.display = 'block';
+}
+
+function copyOutput() {
+  const text = output.textContent;
+  if (text.startsWith('Type a')) return;
+  navigator.clipboard.writeText(text);
+  output.classList.add('copied');
+  showToast();
+}
+
+function copySuggestion(el) {
+  navigator.clipboard.writeText(el.dataset.regex);
+  showToast();
+}
+
+function showToast() {
+  const toast = document.getElementById('toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 1500);
+}
+
+input.addEventListener('input', generate);
+</script>
+</body>
+</html>
